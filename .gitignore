@@ -3,3 +3,5 @@
 runs/
 training_log/
 nohup.out
+data/
+.vscode/

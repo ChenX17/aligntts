@@ -1,3 +1,9 @@
+'''
+Date: 2021-02-11 11:46:34
+LastEditors: Xi Chen(chenxi50@lenovo.com)
+LastEditTime: 2021-02-18 00:39:09
+'''
+# import hparams_librispeech as hparams
 import hparams
 from torch.utils.data import DataLoader
 from .data_utils import TextMelSet, TextMelCollate
@@ -20,6 +26,7 @@ def prepare_dataloaders(hparams, stage):
     
     val_loader = DataLoader(valset,
                             batch_size=hparams.batch_size//hparams.n_gpus,
+                            drop_last=True,
                             collate_fn=collate_fn)
     
     return train_loader, val_loader, collate_fn

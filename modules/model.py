@@ -32,9 +32,10 @@ class FFT(nn.Module):
                                                                  dim_feedforward=ff_dim)
                                       for _ in range(n_layers)])
     def forward(self, x, lengths):
-        # B, L, D -> B, L, D
+        # B, L, D -> L, B, D
         alignments = []
         x = x.transpose(0,1)
+        print(x.size())
         mask = get_mask_from_lengths(lengths)
         for layer in self.FFT_layers:
             x, align = layer(x, src_key_padding_mask=mask)
@@ -181,6 +182,7 @@ class Model(nn.Module):
         for _ in range(T-1):
             is_go = log_beta[torch.arange(B), (curr_rows-1).to(torch.long), (curr_cols-1).to(torch.long)]\
                      > log_beta[torch.arange(B), (curr_rows).to(torch.long), (curr_cols-1).to(torch.long)]
+
             curr_rows = F.relu(curr_rows-1.0*is_go+1.0)-1.0
             curr_cols = F.relu(curr_cols-1+1.0)-1.0
             path.append(curr_rows*1.0)

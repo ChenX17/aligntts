@@ -7,7 +7,7 @@ warnings.filterwarnings("ignore")
 import sys
 sys.path.append('waveglow/')
 
-import IPython.display as ipd
+# import IPython.display as ipd
 import pickle as pkl
 import torch
 import torch.nn.functional as F
@@ -26,6 +26,7 @@ from datetime import datetime
 def main():
     data_type = 'phone'
     checkpoint_path = f"training_log/aligntts/stage0/checkpoint_{hparams.train_steps[0]}"
+    print(checkpoint_path)
     state_dict = {}
     
     for k, v in torch.load(checkpoint_path)['state_dict'].items():
@@ -52,9 +53,9 @@ def main():
             for i in range(len(batch)):
                 file_name, _, text = batch[i]
                 file_list.append(file_name)
-                seq = os.path.join('../Dataset/LJSpeech-1.1/preprocessed',
+                seq = os.path.join('data/LJSpeech-1.1/preprocessed',
                                    f'{data_type}_seq')
-                mel = os.path.join('../Dataset/LJSpeech-1.1/preprocessed',
+                mel = os.path.join('data/LJSpeech-1.1/preprocessed',
                                    'melspectrogram')
 
                 seq = torch.from_numpy(np.load(f'{seq}/{file_name}_sequence.npy'))
@@ -90,8 +91,9 @@ def main():
                 alignments = list(torch.split(align,1))
 
             for j, (l, t) in enumerate(zip(text_lengths, mel_lengths)):
+                # import pdb;pdb.set_trace()
                 alignments[j] = alignments[j][0, :l.item(), :t.item()].sum(dim=-1)
-                np.save(f'../Dataset/LJSpeech-1.1/preprocessed/alignments/{file_list[j]}_alignment.npy',
+                np.save(f'data/LJSpeech-1.1/preprocessed/alignments/{file_list[j]}_alignment.npy',
                         alignments[j].detach().cpu().numpy())
             
     print("Alignments Extraction End!!! ({datetime.now()})")

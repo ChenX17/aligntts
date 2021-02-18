@@ -1,3 +1,8 @@
+'''
+Date: 2021-01-30 11:26:02
+LastEditors: Xi Chen(chenxi50@lenovo.com)
+LastEditTime: 2021-02-17 18:41:58
+'''
 """ from https://github.com/keithito/tacotron """
 # -*- coding: utf-8 -*-
 
@@ -7,8 +12,13 @@ from text.symbols import symbols
 
 # Mappings from symbol to numeric ID and vice versa:
 _symbol_to_id = {s: i for i, s in enumerate(symbols)}
-_id_to_symbol = {i: s for i, s in enumerate(symbols)}
 
+print(len(_symbol_to_id))
+print(_symbol_to_id)
+
+_id_to_symbol = {i: s for i, s in enumerate(symbols)}
+_id_to_symbol_b = {i: s for i, s in enumerate(symbols+['*'])}
+print(_id_to_symbol_b)
 # Regular expression matching text enclosed in curly braces:
 _curly_re = re.compile(r'(.*?)\{(.+?)\}(.*)')
 
@@ -55,6 +65,18 @@ def sequence_to_text(sequence):
       result += s
   return result.replace('}{', ' ')
 
+def sequence_to_text_b(sequence):
+  '''Converts a sequence of IDs back to a string'''
+  result = ''
+  for symbol_id in sequence:
+    if symbol_id in _id_to_symbol_b:
+      s = _id_to_symbol_b[symbol_id]
+      # Enclose ARPAbet back in curly braces:
+      if len(s) > 1 and s[0] == '@':
+        s = '{%s}' % s[1:]
+      result += s
+  return result.replace('}{', ' ')
+
 
 def _clean_text(text, cleaner_names):
   for name in cleaner_names:
@@ -75,3 +97,8 @@ def _arpabet_to_sequence(text):
 
 def _should_keep_symbol(s):
   return s in _symbol_to_id and s is not '_' and s is not '~'
+
+if __name__ == '__main__':
+  print(len(_id_to_symbol))
+  import pdb;pdb.set_trace()
+  print('end')

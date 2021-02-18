@@ -1,5 +1,6 @@
 import random
 import numpy as np
+# import hparams_librispeech as hparams
 import hparams
 import torch
 import torch.utils.data
@@ -7,7 +8,7 @@ import torch.nn.functional as F
 import os
 import pickle as pkl
 
-from text import text_to_sequence
+from text import text_to_sequence, sequence_to_text
 
 
 def load_filepaths_and_text(metadata, split="|"):
@@ -25,19 +26,22 @@ class TextMelSet(torch.utils.data.Dataset):
         self.text_dataset = []
         self.align_dataset = []
         seq_path = os.path.join(hparams.data_path, self.data_type)
-        align_path = os.path.join(hparams.data_path, 'alignments')
+        align_path = os.path.join(hparams.data_path, 'alignments_am_chars')
         for data in self.audiopaths_and_text:
-            file_name = data[0][:10]
+            # file_name = data[0][:10]
+            file_name = data[0]
             text = torch.from_numpy(np.load(f'{seq_path}/{file_name}_sequence.npy'))
             self.text_dataset.append(text)
-            
-            if stage !=0:
+            if stage != 0:
                 align = torch.from_numpy(np.load(f'{align_path}/{file_name}_alignment.npy'))
                 self.align_dataset.append(align)
+                if text.shape != align.shape:
+                    print(text.shape)
+                    print(align.shape)
             
             
     def get_mel_text_pair(self, index):
-        file_name = self.audiopaths_and_text[index][0][:10]
+        file_name = self.audiopaths_and_text[index][0]
         
         text = self.text_dataset[index]
         mel_path = os.path.join(hparams.data_path, 'melspectrogram')

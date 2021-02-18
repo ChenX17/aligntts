@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from modules.model import Model
+# from modules.model_dnn import Model
 from modules.loss import MDNLoss
 import hparams
 from text import *
@@ -72,9 +73,8 @@ def validate(model, criterion, val_loader, iteration, writer, stage):
         
     if stage==0:
         writer.add_scalar('Validation loss', val_loss, iteration//hparams.accumulation)
-
         align = model.module.viterbi(log_prob_matrix[0:1], text_lengths[0:1], mel_lengths[0:1]) # 1, L, T
-        mel_out = torch.matmul(align[0].t(), mu_sigma[0, :, :hparams.n_mel_channels]).t() # F, T
+        mel_out = torch.matmul(align[0].float().t(), mu_sigma[0, :, :hparams.n_mel_channels]).t() # F, T
 
         writer.add_image('Validation_alignments', align.detach().cpu(), iteration//hparams.accumulation)
         writer.add_specs(mel_padded[0].detach().cpu(),
@@ -98,11 +98,15 @@ def validate(model, criterion, val_loader, iteration, writer, stage):
         writer.add_scalar('Validation loss', val_loss, iteration//hparams.accumulation)
     
     model.train()
+
+def get_lr(optimizer):
+    for param_group in optimizer.param_groups:
+        return param_group['lr']
     
     
 def main(args):
     train_loader, val_loader, collate_fn = prepare_dataloaders(hparams, stage=args.stage)
-
+    initial_iteration = None
     if args.stage!=0:
         checkpoint_path = f"training_log/aligntts/stage{args.stage-1}/checkpoint_{hparams.train_steps[args.stage-1]}"
         
@@ -119,7 +123,20 @@ def main(args):
         model.load_state_dict(state_dict)
         model = nn.DataParallel(model).cuda()
     else:
-        model = nn.DataParallel(Model(hparams)).cuda()
+        if args.pre_trained_model != '':
+            if not os.path.isfile(args.pre_trained_model):
+                print(f'{args.pre_trained_model} does not exist')
+
+            state_dict = {}
+            for k, v in torch.load(args.pre_trained_model)['state_dict'].items():
+                state_dict[k[7:]]=v
+            initial_iteration = torch.load(args.pre_trained_model)['iteration']
+            model = Model(hparams).cuda()
+            model.load_state_dict(state_dict)
+            model = nn.DataParallel(model).cuda()
+        else:
+
+            model = nn.DataParallel(Model(hparams)).cuda()
 
     criterion = MDNLoss()
     writer = get_writer(hparams.output_directory, f'{hparams.log_directory}/stage{args.stage}')
@@ -128,6 +145,8 @@ def main(args):
                                  betas=(0.9, 0.98),
                                  eps=1e-09)
     iteration, loss = 0, 0
+    if initial_iteration is not None:
+        iteration = initial_iteration
     model.train()
 
     print(f'Stage{args.stage} Start!!! ({str(datetime.now())})')
@@ -156,8 +175,8 @@ def main(args):
             sub_loss.backward()
             loss = loss+sub_loss.item()
             iteration += 1
-            
-            print(f'[{str(datetime.now())}] Stage {args.stage} Iter {iteration:<6d} Loss {loss:<8.6f}')
+            if iteration % 100==0:
+                print(f'[{str(datetime.now())}] Stage {args.stage} Iter {iteration:<6d} Loss {loss:<8.6f}')
 
             if iteration%hparams.accumulation == 0:
                 lr_scheduling(optimizer, iteration//hparams.accumulation)
@@ -165,6 +184,7 @@ def main(args):
                 optimizer.step()
                 model.zero_grad()
                 writer.add_scalar('Train loss', loss, iteration//hparams.accumulation)
+                writer.add_scalar('Learning rate', get_lr(optimizer), iteration//hparams.accumulation)
                 loss=0
 
             if iteration%(hparams.iters_per_validation*hparams.accumulation)==0:
@@ -193,6 +213,7 @@ if __name__ == '__main__':
     p.add_argument('--stage', type=int, required=True)
     p.add_argument('--log_viterbi', type=bool, default=False)
     p.add_argument('--cpu_viterbi', type=bool, default=False)
+    p.add_argument('--pre_trained_model', type=str, default='')
     args = p.parse_args()
     
     os.environ["CUDA_VISIBLE_DEVICES"]=args.gpu
